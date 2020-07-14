@@ -101,9 +101,16 @@ def _nn_connectivity(connectivity, thr):
     connectivity_ = coo_matrix(
         (1. / connectivity.data, connectivity.nonzero()),
         (n_features, n_features)).tocsr()
-
+    # original:
+    a = 1. / (connectivity_.max(axis=0).toarray()[0]) # original line
     inv_max = dia_matrix((1. / connectivity_.max(axis=0).toarray()[0], 0),
                          shape=(n_features, n_features))
+    
+    ## adding a small constant to avoid zero division
+    #ii = (connectivity_.max(axis=0).toarray()[0]) + 1e-10
+    #a = 1. / ii 
+    #inv_max = dia_matrix((a, 0), shape=(n_features, n_features))
+    
 
     connectivity_ = inv_max * connectivity_
 
@@ -182,7 +189,7 @@ def nearest_neighbor_grouping(connectivity, data_matrix, n_clusters, thr):
 
     # Clustering step: getting the connected components of the nn matrix
     n_labels, labels = csgraph.connected_components(nn_connectivity)
-
+    
     # Reduction step: reduction by averaging
     reduced_connectivity, reduced_data_matrix = reduce_data_and_connectivity(
         labels, n_labels, connectivity, data_matrix, thr)
@@ -289,10 +296,14 @@ class ReNA(BaseEstimator):
         sizes = np.bincount(labels)
         sizes = sizes[sizes > 0]
 
+        if n_labels > self.n_clusters:
+            print('n of clusers is too small') 
+
         self.labels_ = labels
         self.n_clusters_ = np.unique(self.labels_).shape[0]
         self.sizes_ = sizes
         self.n_features = X.shape[1]
+
         
         return self
 
@@ -306,10 +317,15 @@ class ReNA(BaseEstimator):
         """
         N = X.shape[0]
         check_is_fitted(self, 'labels_')
-        Xred = np.array([np.bincount(self.labels_, X[i,:])/self.sizes_ for i in range(N)])
-
+        # mod
+        # select only the biggest 1024 clusters
+        n = np.argsort(self.sizes_)[::-1][:1024]
+        Xred = np.array([np.bincount(self.labels_, X[i,:])[n]/self.sizes_[n] for i in range(N)])
+        
+        # original
+        #Xred = np.array([np.bincount(self.labels_, X[i,:])/self.sizes_ for i in range(N)])
         if self.scaling:
-            Xred = Xred * np.sqrt(self.sizes_)
+            Xred = Xred * np.sqrt(self.sizes_[n])
 
         return Xred
 
@@ -324,9 +340,13 @@ class ReNA(BaseEstimator):
         """
         """
         check_is_fitted(self, 'labels_')
-
         _, inverse = np.unique(self.labels_, return_inverse=True)
+        # mod: does not work
+        # n = np.argsort(self.sizes_)[::-1][:1024]
+        # label = self.labels_[n]
+        # _, inverse = np.unique(label, return_inverse=True)
+        n = np.argsort(self.sizes_)[::-1][:1024]
 
         if self.scaling:
-            Xred = Xred / np.sqrt(self.sizes_)
+            Xred = Xred / np.sqrt(self.sizes_[n])
         return Xred[..., inverse]

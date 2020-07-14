@@ -56,26 +56,9 @@ def create_k_splits(n_splits=5):
 
     return train_split, test_split
 
-def prepare_ABIDE_dataset(SummaryMeasure, k):
-    train_split, test_split = create_k_splits()
-    X_train, y_train = load_ABIDE_data('train', train_split[k], test_split[k], SummaryMeasure)
-    X_test, y_test = load_ABIDE_data('test', train_split[k], test_split[k], SummaryMeasure)
-
-    # prepare mask and masker 
-    mask=np.load("brain_mask", allow_pickle= True)
-    masker = prepare_masker(X_train)
-    # -------
-    # flatten data for mlp
-    X_train = X_train.reshape(len(X_train),-1) #109350
-    X_test = X_test.reshape(len(X_test),-1)
-
-    X_train=X_train[:,mask.reshape(-1)] #28542
-    X_test = X_test[:,mask.reshape(-1)]
-
-    return X_train, X_test, y_train, y_test, masker
 
 #class load_data(Dataset):
-def load_ABIDE_data(  split,
+def load_data(  split,
                 train_split, test_split,
                 summaryMeasure
                  ):

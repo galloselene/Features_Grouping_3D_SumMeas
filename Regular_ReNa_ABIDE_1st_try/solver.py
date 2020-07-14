@@ -13,13 +13,12 @@ import time
 
 
 class Solver(object):
-    def __init__(self, regularizer, net, learning_rate, n_epochs,
-                 batch_size, seed, n_phi=None, n_sample_group=None,
+    def __init__(self, net, learning_rate, n_epochs,
+                 batch_size, seed, n_phi=None, n_sample_rena=None,
                  masker=None, lambda_l2=0, lambda_l1=0,
                  early_stopping=False, patience=10, display=50
                 ):
-        
-        self.regularizer = regularizer
+
         self.net = net
         self.n_clusters = net.n_cluster if hasattr(net, 'n_cluster') else None 
         self.params = list(net.parameters())
@@ -31,7 +30,7 @@ class Solver(object):
         random.seed(seed)
         self.seed = seed
         self.n_phi = n_phi #tot number of ica
-        self.n_sample_group = n_sample_group
+        self.n_sample_rena = n_sample_rena
         self.masker = masker
         self.loss = []
         self.test_loss = []
@@ -49,14 +48,14 @@ class Solver(object):
         self.display = display
 
     def precompute_clusters(self, X_train, n_phi, n_samples,
-                            n_sample_group, n_clusters,
+                            n_sample_rena, n_clusters,
                             masker):
         clusters = []
         X_train = X_train.data.numpy() if not type(X_train) == np.ndarray else X_train
 
         for idx_phi in range(n_phi): 
             random_indices = random.sample(range(0, n_samples),
-                                           n_sample_group)
+                                           n_sample_rena)
             cluster = ReNA(scaling=True,
                            n_clusters=n_clusters,
                            masker=masker)
@@ -112,8 +111,7 @@ class Solver(object):
                                                             test_size=0.33,
                                                             random_state=self.seed)
         n_samples = X_train.shape[0]
-        # compile rena clusters
-        if self.regularizer == 'ReNa' and hasattr(self.net, 'n_cluster') and self.net.n_cluster:
+        if hasattr(self.net, 'n_cluster') and self.net.n_cluster:
             clusters = self.precompute_clusters(X_train, self.n_phi, n_samples,
                                                 self.n_sample_rena, self.n_clusters,
                                                 self.masker)
@@ -180,8 +178,7 @@ class Solver(object):
                 print("Quitting training for early stopping at epoch ", idx)
                 print("Accuracy train: %.2f, test : %.2f" % (accuracy_train, accuracy_test))
                 break
-        return accuracy_train, accuracy_test
-        
+
     def predict_numpy(self, X, y, batch_size):
         if batch_size is None:
             input_ = torch.from_numpy(X).float() if type(X) == np.ndarray else X
